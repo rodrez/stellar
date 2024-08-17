@@ -1,4 +1,4 @@
-from engines.tkinter_engine import TkinterWindow
+from stellar.engines.tkinter_engine import TkinterWindow
 
 
 class StellarEmulator:
