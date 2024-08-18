@@ -1,0 +1,10 @@
+[appearance]
+font_family = "FiraCode Nerd Font Mono"
+font_size = 18
+text_color = "white"
+bg_color = "black"
+padding = 5
+
+[terminal]
+cols = 78
+rows = 24
