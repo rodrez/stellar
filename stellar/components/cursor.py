@@ -2,12 +2,19 @@ import time
 
 
 class Cursor:
-    def __init__(self, x: int = 0, y: int = 0, blink_interval: float = 0.5):
+    def __init__(
+        self,
+        x: int = 0,
+        y: int = 0,
+        blink_interval: float = 0.5,
+        cursor_type: str = "block",
+    ):
         self.x = x
         self.y = y
         self.visible = True
         self.last_blink_time = time.time()
         self.blink_interval = blink_interval
+        self.cursor_type = cursor_type
 
     def move(self, x: int, y: int):
         self.x = x
@@ -27,5 +34,11 @@ class Cursor:
     def set_blink_interval(self, interval: float):
         self.blink_interval = interval
 
+    def set_cursor_type(self, cursor_type: str):
+        self.cursor_type = cursor_type
+
     def is_visible(self) -> bool:
         return self.visible
+
+    def get_cursor_type(self) -> str:
+        return self.cursor_type

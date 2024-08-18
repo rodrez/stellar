@@ -5,7 +5,6 @@ from typing import Any
 from stellar.interfaces.window import WindowInterface
 from stellar.input.keyboard_handler import KeyboardHandler
 from stellar.setings.config import config
-from stellar.setings.themes import Theme  # Import the Theme class you created
 
 
 class TkinterWindow(WindowInterface):

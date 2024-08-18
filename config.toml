@@ -11,8 +11,11 @@ rows = 24
 
 [cursor]
 blink_interval = 0.5
+type = 'block'
 
 [prompt]
+
+# ➜ ~/D/C/stellar git:(main) ✗
 format = "{time} | @{username} {current_dir} {git_branch}"
 time_format = "%H:%M:%S"
 

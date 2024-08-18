@@ -3,7 +3,7 @@ import toml
 
 
 class Theme:
-    def __init__(self, theme_file="stellar/themes/tokyonight-moon.toml"):
+    def __init__(self, theme_file="stellar/themes/tokyonight.toml"):
         self.theme_file = theme_file
         self.colors = self.load_theme()
 

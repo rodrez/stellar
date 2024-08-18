@@ -1,3 +1,4 @@
+from stellar.components.command_manager import CommandManager
 from stellar.components.prompt import Prompt
 from stellar.interfaces.renderer import RenderInterface
 from stellar.interfaces.window import WindowInterface
@@ -11,8 +12,8 @@ class DefaultRenderer(RenderInterface):
     def __init__(self, window: WindowInterface) -> None:
         self.window = window
         self.font = None
-        self.char_width = None
-        self.char_height = None
+        self.char_width = 0
+        self.char_height = 0
         self.text_color = config.text_color
         self.bg_color = config.bg_color
         self.padding = config.padding
@@ -25,11 +26,18 @@ class DefaultRenderer(RenderInterface):
         self.plugin_manager.discover_plugins("stellar/plugins")
         self.plugin_manager.initialize_plugins(self)
 
+        self.command_manager = CommandManager(self, window)
+
         self.prompt = Prompt(self.plugin_manager)
         self.input_start_x = 0  # Will be set after writing the prompt
         self.current_color = self.text_color
 
-        self.cursor = Cursor(x=0, y=0, blink_interval=config.cursor_blink_interval)
+        self.cursor = Cursor(
+            x=0,
+            y=0,
+            blink_interval=config.cursor_blink_interval,
+            cursor_type=config.cursor_type,
+        )
 
         self.theme = config.theme
 
@@ -46,14 +54,14 @@ class DefaultRenderer(RenderInterface):
             logging.warning("Window root does not exist. Font creation deferred.")
 
     def write_prompt(self):
-        prompt_string = self.prompt.prompt_string
-        prompt_color = self.theme.get_bright_color("green")
+        prompt_segments = self.prompt.get_prompt()
         x = 0
-        for char in prompt_string:
-            self.write_char(char, x, self.cursor.y, prompt_color)
-            x += 1
+        for segment, color in prompt_segments:
+            for char in segment:
+                self.write_char(char=char, x=x, y=self.cursor.y, color=color)
+                x += 1
         self.input_start_x = x
-        self.cursor.move(self.input_start_x, self.cursor.y)
+        self.cursor.move(x=self.input_start_x, y=self.cursor.y)
 
     def render_frame(self) -> None:
         if not self.font:
@@ -98,17 +106,30 @@ class DefaultRenderer(RenderInterface):
         if self.cursor.is_visible():
             cursor_x = self.cursor.x * self.char_width + self.padding
             cursor_y = self.cursor.y * self.char_height + self.padding
-            self.window.draw_rectangle(
-                cursor_x,
-                cursor_y,
-                cursor_x + self.char_width,
-                cursor_y + self.char_height,
-                self.text_color,
-            )
+            self.draw_cursor(cursor_x, cursor_y)
 
         self.window.update()
 
-    def write_char(self, char: str, x: int, y: int, color: str = None) -> int:
+    def draw_cursor(self, x: int, y: int):
+        cursor_type = self.cursor.get_cursor_type()
+        if cursor_type == "block":
+            self.window.draw_rectangle(
+                x, y, x + self.char_width, y + self.char_height, self.text_color
+            )
+        elif cursor_type == "underscore":
+            self.window.draw_rectangle(
+                x,
+                y + self.char_height - 2,
+                x + self.char_width,
+                y + self.char_height,
+                self.text_color,
+            )
+        elif cursor_type == "bar":
+            self.window.draw_rectangle(
+                x, y, x + 2, y + self.char_height, self.text_color
+            )
+
+    def write_char(self, char: str, x: int, y: int, color: str | None = None) -> int:
         if 0 <= x < self.cols and 0 <= y < self.rows:
             char_color = color if color is not None else self.current_color
             self.buffer[y][x] = (char, char_color)
@@ -125,50 +146,53 @@ class DefaultRenderer(RenderInterface):
                 self.write_char(" ", self.cursor.x, self.cursor.y)
         else:
             if self.cursor.x < self.cols:
-                self.write_char(char, self.cursor.x, self.cursor.y)
-                self.cursor.move(self.cursor.x + 1, self.cursor.y)
+                # Ensure we're writing after the prompt
+                write_x = max(self.cursor.x, self.input_start_x)
+                self.write_char(char, write_x, self.cursor.y)
+                self.cursor.move(write_x + 1, self.cursor.y)
 
         self.cursor.reset_blink()
 
+    def clear_screen(self):
+        self.buffer = [
+            [(" ", self.text_color) for _ in range(self.cols)] for _ in range(self.rows)
+        ]
+        self.cursor.move(0, 0)
+        self.write_prompt()
+        self.cursor.move(self.input_start_x, 0)  # Move cursor to end of prompt
+
     def execute_command(self):
-        command = "".join(
+        command_line = "".join(
             char
             for char, _ in self.buffer[self.cursor.y][
                 self.input_start_x : self.cursor.x
             ]
         ).strip()
-        logging.debug(f"Executing command: {command}")
+        logging.debug(f"Executing command: {command_line}")
 
+        self.new_line()
+        self.command_manager.execute_command(command_line)
+        if (
+            command_line.lower() != "clear"
+        ):  # Only write new prompt if command wasn't 'clear'
+            self.new_line()
+            self.write_prompt()
+
+    def write_output(self, output: str, color: str):
+        for line in output.splitlines():
+            for char in line:
+                self.write_char(char, self.cursor.x, self.cursor.y, color)
+                self.cursor.move(self.cursor.x + 1, self.cursor.y)
+                if self.cursor.x >= self.cols:
+                    self.new_line()
+            self.new_line()
+
+    def new_line(self):
         self.cursor.move(0, self.cursor.y + 1)
         if self.cursor.y >= self.rows:
             self.buffer.pop(0)
             self.buffer.append([(" ", self.text_color) for _ in range(self.cols)])
-            self.cursor.move(self.cursor.x, self.rows - 1)
-
-        # Apply colors to the output
-        output = f"Echoing: {command}"
-        output_color = self.theme.get_bright_color("blue")
-
-        for char in output:
-            chars_written = self.write_char(
-                char, self.cursor.x, self.cursor.y, output_color
-            )
-            self.cursor.move(self.cursor.x + chars_written, self.cursor.y)
-            if self.cursor.x >= self.cols:
-                self.cursor.move(0, self.cursor.y + 1)
-                if self.cursor.y >= self.rows:
-                    self.buffer.pop(0)
-                    self.buffer.append(
-                        [(" ", self.text_color) for _ in range(self.cols)]
-                    )
-                    self.cursor.move(self.cursor.x, self.rows - 1)
-
-        self.cursor.move(0, self.cursor.y + 1)
-        if self.cursor.y >= self.rows:
-            self.buffer.pop(0)
-            self.buffer.append([(" ", self.text_color) for _ in range(self.cols)])
-            self.cursor.move(self.cursor.x, self.rows - 1)
-        self.write_prompt()
+            self.cursor.move(0, self.rows - 1)
 
     def reload_config(self):
         config.reload()

@@ -31,10 +31,14 @@ class Config:
 
         # Cursor settings
         self.cursor_blink_interval = self.config["cursor"]["blink_interval"]
+        self.cursor_type = self.config["cursor"]["type"]
 
     def reload(self):
         """Reload the configuration from the TOML file"""
         self.__init__()
+
+    def validate(self):
+        """Validate that the values for the config make sense"""
 
 
 config = Config()
