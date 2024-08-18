@@ -13,11 +13,6 @@ class RenderInterface(ABC):
         pass
 
     @abstractmethod
-    def update_cursor(self, x: int, y: int):
-        """Update the cursor position"""
-        pass
-
-    @abstractmethod
-    def write_char(self, char: str, x: int, y: int):
+    def write_char(self, char: str, x: int, y: int) -> int:
         """Write a character at the specified position"""
         pass
