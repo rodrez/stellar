@@ -24,7 +24,15 @@ class WindowInterface(ABC):
         """Draw a rectangle on the window"""
 
     @abstractmethod
-    def draw_text(self, text: str, x: int, y: int, color: str, font: FontType):
+    def draw_text(
+        self,
+        text: str,
+        x: int,
+        y: int,
+        foreground_color: str,
+        font: FontType,
+        background_color: str,
+    ):
         """Draw the text on the window at the specified position"""
         pass
 

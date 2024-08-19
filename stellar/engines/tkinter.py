@@ -53,15 +53,25 @@ class TkinterWindow(WindowInterface):
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         logging.info("Keyboard and resize event bindings added.")
 
-    def draw_text(self, text: str, x: int, y: int, color: str, font: Any):
+    def draw_text(
+        self,
+        text: str,
+        x: int,
+        y: int,
+        foreground_color: str,
+        font: Any,
+        background_color: str,
+    ):
         if self.canvas:
             if font:
                 self.canvas.create_text(
-                    x, y, text=text, fill=color, anchor="nw", font=font
+                    x, y, text=text, fill=foreground_color, anchor="nw", font=font
                 )
             else:
                 logging.debug("Using default font.")
-                self.canvas.create_text(x, y, text=text, fill=color, anchor="nw")
+                self.canvas.create_text(
+                    x, y, text=text, fill=foreground_color, anchor="nw"
+                )
         else:
             logging.error("Cannot draw text: canvas not initialized.")
 
