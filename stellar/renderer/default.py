@@ -2,7 +2,7 @@ import re
 from typing import Tuple
 from stellar.interfaces.renderer import RenderInterface
 from stellar.interfaces.window import WindowInterface
-from stellar.setings.config import config
+from stellar.settings.config import config
 from stellar.components.cursor import Cursor
 import logging
 
@@ -104,86 +104,6 @@ class DefaultRenderer(RenderInterface):
             return 1
         return 0
 
-    def handle_pty_output(self, output: str) -> None:
-        logging.debug(f"Received PTY output: {repr(output)}")
-        i = 0
-        while i < len(output):
-            char = output[i]
-            if self.escape_buffer or char == "\x1b":
-                self.escape_buffer += char
-                if self.escape_buffer[-1] in "ABCDEFGHJKSTfmnsulh":
-                    self.handle_escape_sequence(self.escape_buffer)
-                    self.escape_buffer = ""
-                i += 1
-            elif char == "\n":
-                self.new_line()
-                i += 1
-            elif char == "\r":
-                self.cursor.move(0, self.cursor.y)
-                i += 1
-            elif char == "\b":
-                self.handle_backspace()
-                i += 1
-            # elif char == "\x7f":  # DEL character
-            #     if i + 2 < len(output) and output[i + 1 : i + 3] == "\x1b[":
-            #         # This is likely a DEL followed by cursor backward sequence
-            #         self.handle_backspace()
-            #         i += 3
-            #     else:
-            #         # Treat it as a regular backspace
-            #         self.handle_backspace()
-            #         i += 1
-            else:
-                self.write_char(
-                    char,
-                    self.cursor.x,
-                    self.cursor.y,
-                    self.current_fg_color,
-                    self.current_bg_color,
-                )
-                self.cursor.move(self.cursor.x + 1, self.cursor.y)
-                if self.cursor.x >= self.cols:
-                    self.new_line()
-                i += 1
-
-    def handle_escape_sequence(self, sequence):
-        logging.debug(f"Handling escape sequence: {repr(sequence)}")
-        if sequence.endswith("J"):  # Clear screen
-            if sequence == "\x1b[2J" or sequence == "\x1b[J":
-                self.clear_screen()
-                self.cursor.move(0, 0)  # Move cursor to home position
-            elif sequence == "\x1b[1J":
-                self.clear_screen_to_cursor()
-            elif sequence == "\x1b[0J":
-                self.clear_screen_from_cursor()
-        elif sequence.endswith("K"):  # Clear line
-            if sequence == "\x1b[2K" or sequence == "\x1b[K":
-                self.clear_line()
-            elif sequence == "\x1b[1K":
-                self.clear_line_to_cursor()
-            elif sequence == "\x1b[0K":
-                self.clear_line_from_cursor()
-        elif sequence.endswith("H") or sequence.endswith("f"):  # Move cursor
-            match = re.match(r"\x1b\[(\d+)?;?(\d+)?[Hf]", sequence)
-            if match:
-                row, col = match.groups()
-                row = int(row) if row else 1
-                col = int(col) if col else 1
-                self.set_cursor_position(col - 1, row - 1)
-        elif sequence.endswith("m"):  # Set graphics mode (colors, etc.)
-            self.set_graphics_mode(sequence)
-        elif sequence.startswith("\x1b[") and sequence[-1] in "ABCD":  # Cursor movement
-            count = int(sequence[2:-1]) if len(sequence) > 3 else 1
-            x, y = self.get_cursor_position()
-            if sequence[-1] == "A":  # Up
-                self.set_cursor_position(x, max(0, y - count))
-            elif sequence[-1] == "B":  # Down
-                self.set_cursor_position(x, min(self.rows - 1, y + count))
-            elif sequence[-1] == "C":  # Forward
-                self.set_cursor_position(min(self.cols - 1, x + count), y)
-            elif sequence[-1] == "D":  # Backward
-                self.set_cursor_position(max(0, x - count), y)
-
     def handle_backspace(self):
         if self.cursor.x > 0:
             # Move cursor back
@@ -282,43 +202,132 @@ class DefaultRenderer(RenderInterface):
         for cx in range(x, self.cols):
             self.buffer[y][cx] = (" ", self.current_fg_color, self.current_bg_color)
 
+    def handle_escape_sequence(self, sequence):
+        logging.debug(f"Handling escape sequence: {repr(sequence)}")
+        try:
+            if sequence.endswith("J"):  # Clear screen
+                if sequence == "\x1b[2J" or sequence == "\x1b[J":
+                    self.clear_screen()
+                    self.cursor.move(0, 0)  # Move cursor to home position
+                elif sequence == "\x1b[1J":
+                    self.clear_screen_to_cursor()
+                elif sequence == "\x1b[0J":
+                    self.clear_screen_from_cursor()
+            elif sequence.endswith("K"):  # Clear line
+                if sequence == "\x1b[2K" or sequence == "\x1b[K":
+                    self.clear_line()
+                elif sequence == "\x1b[1K":
+                    self.clear_line_to_cursor()
+                elif sequence == "\x1b[0K":
+                    self.clear_line_from_cursor()
+            elif sequence.endswith("H") or sequence.endswith("f"):  # Move cursor
+                match = re.match(r"\x1b\[(\d+)?;?(\d+)?[Hf]", sequence)
+                if match:
+                    row, col = match.groups()
+                    row = int(row) if row else 1
+                    col = int(col) if col else 1
+                    self.set_cursor_position(col - 1, row - 1)
+            elif sequence.endswith("m"):  # Set graphics mode (colors, etc.)
+                self.set_graphics_mode(sequence)
+            elif (
+                sequence.startswith("\x1b[") and sequence[-1] in "ABCD"
+            ):  # Cursor movement
+                count = int(sequence[2:-1]) if len(sequence) > 3 else 1
+                x, y = self.get_cursor_position()
+                if sequence[-1] == "A":  # Up
+                    self.set_cursor_position(x, max(0, y - count))
+                elif sequence[-1] == "B":  # Down
+                    self.set_cursor_position(x, min(self.rows - 1, y + count))
+                elif sequence[-1] == "C":  # Forward
+                    self.set_cursor_position(min(self.cols - 1, x + count), y)
+                elif sequence[-1] == "D":  # Backward
+                    self.set_cursor_position(max(0, x - count), y)
+            else:
+                logging.warning(f"Unhandled escape sequence: {repr(sequence)}")
+        except Exception as e:
+            logging.error(f"Error handling escape sequence {repr(sequence)}: {str(e)}")
+
     def set_graphics_mode(self, sequence):
-        codes = [int(code) for code in sequence[2:-1].split(";") if code]
-        for code in codes:
-            if code == 0:  # Reset
-                self.current_fg_color = self.text_color
-                self.current_bg_color = self.bg_color
-            elif 30 <= code <= 37:  # Foreground color
-                self.current_fg_color = self.theme.get_normal_color(
-                    [
-                        "black",
-                        "red",
-                        "green",
-                        "yellow",
-                        "blue",
-                        "magenta",
-                        "cyan",
-                        "white",
-                    ][code - 30]
+        logging.debug(f"Setting graphics mode: {repr(sequence)}")
+        try:
+            # Remove any non-digit characters before splitting
+            codes = [int(code) for code in re.findall(r"\d+", sequence[2:-1])]
+            for code in codes:
+                if code == 0:  # Reset
+                    self.current_fg_color = self.text_color
+                    self.current_bg_color = self.bg_color
+                elif 30 <= code <= 37:  # Foreground color
+                    self.current_fg_color = self.theme.get_normal_color(
+                        [
+                            "black",
+                            "red",
+                            "green",
+                            "yellow",
+                            "blue",
+                            "magenta",
+                            "cyan",
+                            "white",
+                        ][code - 30]
+                    )
+                elif 40 <= code <= 47:  # Background color
+                    self.current_bg_color = self.theme.get_normal_color(
+                        [
+                            "black",
+                            "red",
+                            "green",
+                            "yellow",
+                            "blue",
+                            "magenta",
+                            "cyan",
+                            "white",
+                        ][code - 40]
+                    )
+                else:
+                    logging.warning(f"Unhandled graphics mode code: {code}")
+        except Exception as e:
+            logging.error(
+                f"Error setting graphics mode for sequence {repr(sequence)}: {str(e)}"
+            )
+
+    def handle_pty_output(self, output: str) -> None:
+        logging.debug(f"Received PTY output: {repr(output)}")
+        i = 0
+        while i < len(output):
+            char = output[i]
+            if self.escape_buffer or char == "\x1b":
+                self.escape_buffer += char
+                if self.escape_buffer[-1] in "ABCDEFGHJKSTfmnsulh":
+                    self.handle_escape_sequence(self.escape_buffer)
+                    self.escape_buffer = ""
+                i += 1
+            elif char == "\n":
+                self.new_line()
+                i += 1
+            elif char == "\r":
+                self.cursor.move(0, self.cursor.y)
+                i += 1
+            elif char == "\b":
+                self.handle_backspace()
+                i += 1
+            elif char == "\x7f":  # DEL character
+                self.handle_backspace()
+                i += 1
+            else:
+                self.write_char(
+                    char,
+                    self.cursor.x,
+                    self.cursor.y,
+                    self.current_fg_color,
+                    self.current_bg_color,
                 )
-            elif 40 <= code <= 47:  # Background color
-                self.current_bg_color = self.theme.get_normal_color(
-                    [
-                        "black",
-                        "red",
-                        "green",
-                        "yellow",
-                        "blue",
-                        "magenta",
-                        "cyan",
-                        "white",
-                    ][code - 40]
-                )
+                self.cursor.move(self.cursor.x + 1, self.cursor.y)
+                if self.cursor.x >= self.cols:
+                    self.new_line()
+                i += 1
 
     def new_line(self):
-        x, y = self.get_cursor_position()
-        self.set_cursor_position(0, y + 1)
-        if y + 1 >= self.rows:
+        self.cursor.move(0, self.cursor.y + 1)
+        if self.cursor.y >= self.rows:
             self.buffer.pop(0)
             self.buffer.append(
                 [
@@ -326,7 +335,7 @@ class DefaultRenderer(RenderInterface):
                     for _ in range(self.cols)
                 ]
             )
-            self.set_cursor_position(0, self.rows - 1)
+            self.cursor.move(0, self.rows - 1)
 
     def draw_cursor(self, x: int, y: int):
         cursor_type = self.cursor.get_cursor_type()

@@ -22,7 +22,7 @@ class PTYHandler:
         self.fd: int | None = None
         self.pid: int | None = None
 
-    def spawn(self, shell: str = "/bin/bash") -> None:
+    def spawn(self, shell: str = "/bin/zsh") -> None:
         """
         Spawn a new shell process attached to a pseudo-terminal.
 

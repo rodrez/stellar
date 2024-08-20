@@ -1,5 +1,5 @@
 from stellar.plugins.base import StellarPlugin
-from stellar.setings.config import config
+from stellar.settings.config import config
 import time
 import getpass
 import os

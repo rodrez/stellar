@@ -3,7 +3,7 @@ import sdl2
 import sdl2.ext
 from stellar.interfaces.renderer import RenderInterface
 from stellar.interfaces.window import WindowInterface
-from stellar.setings.config import config
+from stellar.settings.config import config
 from stellar.components.cursor import Cursor
 
 

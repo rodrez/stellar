@@ -1,4 +1,4 @@
-from stellar.setings.config import config
+from stellar.settings.config import config
 import time
 import os
 import subprocess

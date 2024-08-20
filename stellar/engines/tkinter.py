@@ -4,7 +4,7 @@ import logging
 from typing import Any
 from stellar.interfaces.window import WindowInterface
 from stellar.input.keyboard_handler import KeyboardHandler
-from stellar.setings.config import config
+from stellar.settings.config import config
 
 
 class TkinterWindow(WindowInterface):
