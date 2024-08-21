@@ -1,10 +1,10 @@
 import logging
 from stellar.interfaces.input import InputInterface
-from stellar.interfaces.window import WindowInterface
+from stellar.interfaces.window import WindowEngineInterface
 
 
 class KeyboardHandler(InputInterface):
-    def __init__(self, window: WindowInterface) -> None:
+    def __init__(self, window: WindowEngineInterface) -> None:
         self.window = window
         self.key_buffer = []
         logging.info("KeyboardHandler initialized.")

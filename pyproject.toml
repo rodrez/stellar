@@ -3,7 +3,11 @@ name = "stellar"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-dependencies = []
+dependencies = [
+'tabulate',
+'toml',
+'ruff',
+]
 
 [tool.uv]
-dev-dependencies = ['ruff', 'toml']
+dev-dependencies = []

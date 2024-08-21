@@ -4,84 +4,111 @@ import select
 import termios
 import struct
 import fcntl
+import logging
+import signal
+import subprocess
 
 
 class PTYHandler:
-    """
-    PTYHandler is a class that handles interactions with a pseudo-terminal (PTY).
-    It provides methods to spawn a shell, read from, write to, and resize the PTY.
-    """
-
     def __init__(self):
-        """
-        Initialize a PTYHandler instance.
-        Attributes:
-            fd (int): File descriptor for the master end of the PTY.
-            pid (int): Process ID of the spawned shell.
-        """
         self.fd: int | None = None
         self.pid: int | None = None
+        self.is_wsl = self._check_wsl()
 
-    def spawn(self, shell: str = "/bin/zsh") -> None:
-        """
-        Spawn a new shell process attached to a pseudo-terminal.
+    def _check_wsl(self):
+        try:
+            with open("/proc/version", "r") as f:
+                return "microsoft" in f.read().lower()
+        except:
+            return False
 
-        Args:
-            shell (str): The shell to spawn. Default is "/bin/bash".
-        """
+    def spawn(self, shell: str = "/bin/bash") -> None:
+        # if self.is_wsl:
+        #     logging.info("WSL")
+        #     # Use subprocess for WSL to avoid potential pty issues
+        #     process = subprocess.Popen(
+        #         shell,
+        #         stdin=subprocess.PIPE,
+        #         stdout=subprocess.PIPE,
+        #         stderr=subprocess.PIPE,
+        #         env=self._get_clean_env(),
+        #         start_new_session=True,
+        #         universal_newlines=True,
+        #         bufsize=0,
+        #     )
+        #     self.pid = process.pid
+        #     self.fd = process.stdout.fileno()
+        # else:
         self.pid, self.fd = pty.fork()
         if self.pid == 0:  # Child process
-            os.execvp(shell, [shell])
+            os.chdir(os.path.expanduser("~"))
+            os.execvpe(shell, [shell], self._get_clean_env())
+
+    def _get_clean_env(self):
+        env = os.environ.copy()
+        env.pop("OLDPWD", None)
+        env.pop("PWD", None)
+        return env
 
     def read(self, max_read_bytes: int = 1024) -> bytes:
-        """
-        Read data from the PTY.
-
-        Args:
-            max_read_bytes (int): Maximum number of bytes to read. Default is 1024.
-
-        Returns:
-            bytes: Data read from the PTY. If no data is available, an empty byte string is returned.
-        """
         if not self.fd:
             return b""
-        r, _, _ = select.select([self.fd], [], [], 0)
-        if not r:
+        try:
+            r, _, _ = select.select([self.fd], [], [], 0.1)
+            if not r:
+                return b""
+            return os.read(self.fd, max_read_bytes)
+        except (OSError, IOError) as e:
+            logging.error(f"Error reading from PTY: {e}")
+            if not self.is_alive():
+                logging.info("PTY process is not alive. Attempting to respawn.")
+                self.respawn()
             return b""
-        return os.read(self.fd, max_read_bytes)
 
     def write(self, data: str) -> None:
-        """
-        Write data to the PTY.
-
-        Args:
-            data (str): The data to write to the PTY.
-        """
         if not self.fd:
             return
-        os.write(self.fd, data.encode())
+        try:
+            os.write(self.fd, data.encode())
+        except (OSError, IOError) as e:
+            logging.error(f"Error writing to PTY: {e}")
+            if not self.is_alive():
+                logging.info("PTY process is not alive. Attempting to respawn.")
+                self.respawn()
 
-    def resize(self, rows: int, cols: int) -> None:
-        """
-        Resize the PTY window size.
+    def is_alive(self) -> bool:
+        if self.pid is None:
+            return False
+        try:
+            os.kill(self.pid, 0)
+            return True
+        except OSError:
+            return False
 
-        Args:
-            rows (int): Number of rows for the PTY.
-            cols (int): Number of columns for the PTY.
-        """
-        if not self.fd:
-            return
-        s = struct.pack("HHHH", rows, cols, 0, 0)
-        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, s)
+    def respawn(self) -> None:
+        self.close()
+        self.spawn()
 
     def close(self) -> None:
-        """
-        Close the PTY and terminate the shell process.
-        """
         if self.fd:
-            os.close(self.fd)
+            try:
+                os.close(self.fd)
+            except OSError:
+                pass
         if self.pid:
             try:
-                os.kill(self.pid, 9)  # Force kill the process
+                os.kill(self.pid, signal.SIGTERM)
+                os.waitpid(self.pid, 0)
             except ProcessLookupError:
                 pass  # Process has already terminated
+        self.fd = None
+        self.pid = None
+
+    def resize(self, rows: int, cols: int) -> None:
+        if not self.fd:
+            return
+        try:
+            s = struct.pack("HHHH", rows, cols, 0, 0)
+            fcntl.ioctl(self.fd, termios.TIOCSWINSZ, s)
+        except (OSError, IOError) as e:
+            logging.error(f"Error resizing PTY: {e}")

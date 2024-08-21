@@ -1,4 +1,4 @@
-from .window import WindowInterface
+from .window import WindowEngineInterface
 
 
-__all__ = ["WindowInterface"]
+__all__ = ["WindowEngineInterface"]

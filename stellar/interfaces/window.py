@@ -1,62 +1,36 @@
+# stellar/interfaces/window.py
+
 from abc import ABC, abstractmethod
-from typing import Any
-# from typing import Optional
-
-from stellar.interfaces.typings import FontType
+from typing import Tuple
 
 
-class WindowInterface(ABC):
+class WindowEngineInterface(ABC):
     @abstractmethod
-    def create_window(self, title: str, width: int, height: int):
-        """Creates a window with the given title and dimensions"""
+    def create_window(self, title: str, width: int, height: int) -> None:
+        """Create a window with the given title and dimensions."""
         pass
 
     @abstractmethod
-    def root_exists(self) -> bool:
+    def handle_events(self) -> None:
+        """Handle window events."""
         pass
 
     @abstractmethod
-    def create_font(self, family: str, size: int) -> Any:
+    def handle_input(self) -> str:
+        """Handle and return user input."""
         pass
 
     @abstractmethod
-    def draw_rectangle(self, x1: int, y1: int, x2: int, y2: int, color: str):
-        """Draw a rectangle on the window"""
-
-    @abstractmethod
-    def draw_text(
-        self,
-        text: str,
-        x: int,
-        y: int,
-        foreground_color: str,
-        font: FontType,
-        background_color: str,
-    ):
-        """Draw the text on the window at the specified position"""
+    def update(self) -> None:
+        """Update the window display."""
         pass
 
     @abstractmethod
-    def handle_events(self):
-        """Handles windows events (eg. rezing, closing, etc)"""
+    def is_alive(self) -> bool:
+        """Check if the window is still open and active."""
         pass
 
     @abstractmethod
-    def run(self):
-        """Starts the window event loop"""
-        pass
-
-    @abstractmethod
-    def clear(self):
-        """Clears window content"""
-        pass
-
-    @abstractmethod
-    def update(self):
-        """Updates the window display"""
-        pass
-
-    @abstractmethod
-    def get_size(self) -> tuple[int, int]:
-        """Returns a width, height tuple"""
+    def get_size(self) -> Tuple[int, int]:
+        """Get the current size of the window."""
         pass

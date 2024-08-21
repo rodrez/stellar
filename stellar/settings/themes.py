@@ -1,6 +1,8 @@
 from tabulate import tabulate
 import toml
 
+from stellar.components.ansi import ANSI_COLORS
+
 
 class Theme:
     def __init__(self, theme_file="stellar/themes/tokyonight.toml"):
@@ -19,21 +21,21 @@ class Theme:
             print(f"Error parsing theme file: {self.theme_file}")
             return {}
 
-    def get_color(self, category, color_name):
+    def get_color(self, category, color_name: ANSI_COLORS):
         return self.colors.get(category, {}).get(
-            color_name, "#FFFFFF"
+            color_name.value, "#FFFFFF"
         )  # Default to white if color not found
 
     def get_primary_bg(self):
-        return self.get_color("primary", "background")
+        return self.get_color("primary", ANSI_COLORS.BACKGROUND)
 
     def get_primary_fg(self):
-        return self.get_color("primary", "foreground")
+        return self.get_color("primary", ANSI_COLORS.FOREGROUND)
 
-    def get_normal_color(self, color_name):
+    def get_normal_color(self, color_name: ANSI_COLORS):
         return self.get_color("normal", color_name)
 
-    def get_bright_color(self, color_name):
+    def get_bright_color(self, color_name: ANSI_COLORS):
         return self.get_color("bright", color_name)
 
     def get_indexed_color(self, index):

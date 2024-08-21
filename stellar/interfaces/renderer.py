@@ -1,51 +1,62 @@
 from abc import ABC, abstractmethod
-from stellar.interfaces.window import WindowInterface
-from typing import Tuple
 
 
-class RenderInterface(ABC):
+class RendererInterface(ABC):
     @abstractmethod
-    def __init__(self, window: WindowInterface) -> None:
+    def initialize(self, width: int, height: int) -> None:
+        """Initialize the renderer with given dimensions."""
         pass
 
     @abstractmethod
-    def render_frame(self) -> None:
-        """Renders a single frame to the terminal"""
+    def clear(self) -> None:
+        """Clear the entire screen."""
         pass
 
     @abstractmethod
-    def write_char(
-        self, char: str, x: int, y: int, fg_color: str, bg_color: str
-    ) -> int:
-        """Write a character at the specified position with given colors"""
+    def draw_char(
+        self,
+        x: int,
+        y: int,
+        char: str,
+        fg_color: tuple[int, int, int],
+        bg_color: tuple[int, int, int],
+    ) -> None:
+        """Draw a single character at the specified position with given colors."""
         pass
 
     @abstractmethod
-    def handle_pty_output(self, output: str) -> None:
-        """Handle output from the PTY"""
+    def draw_string(
+        self,
+        x: int,
+        y: int,
+        string: str,
+        fg_color: tuple[int, int, int],
+        bg_color: tuple[int, int, int],
+    ) -> None:
+        """Draw a string starting at the specified position with given colors."""
         pass
 
     @abstractmethod
-    def handle_input(self, char: str) -> None:
-        """Handle input from the user"""
+    def set_cursor(self, x: int, y: int) -> None:
+        """Set the cursor position."""
         pass
 
     @abstractmethod
-    def clear_screen(self) -> None:
-        """Clear the entire screen"""
+    def show_cursor(self) -> None:
+        """Show the cursor."""
         pass
 
     @abstractmethod
-    def resize(self, cols: int, rows: int) -> None:
-        """Resize the terminal buffer"""
+    def hide_cursor(self) -> None:
+        """Hide the cursor."""
         pass
 
     @abstractmethod
-    def get_cursor_position(self) -> Tuple[int, int]:
-        """Get the current cursor position"""
+    def refresh(self) -> None:
+        """Refresh the screen to show recent changes."""
         pass
 
     @abstractmethod
-    def set_cursor_position(self, x: int, y: int) -> None:
-        """Set the cursor position"""
+    def get_size(self) -> tuple[int, int]:
+        """Get the current size of the terminal (width, height)."""
         pass

@@ -2,14 +2,13 @@ import importlib
 import os
 import logging
 from .base import StellarPlugin
-from typing import Dict, List
 
 
 class PluginManager:
     def __init__(self):
-        self.plugins: Dict[str, StellarPlugin] = {}
-        self.plugin_modules: Dict[str, str] = {}
-        self.plugin_priorities: Dict[str, int] = {}
+        self.plugins: dict[str, StellarPlugin] = {}
+        self.plugin_modules: dict[str, str] = {}
+        self.plugin_priorities: dict[str, int] = {}
 
     def discover_plugins(self, plugin_dir: str):
         """Discover plugins without loading them."""
@@ -50,7 +49,7 @@ class PluginManager:
                 logging.error(f"Failed to load plugin {module_name}: {e}")
         return self.plugins.get(module_name)
 
-    def get_sorted_plugin_names(self) -> List[str]:
+    def get_sorted_plugin_names(self) -> list[str]:
         """Get a list of plugin names sorted by priority."""
         return sorted(
             self.plugin_modules.keys(), key=lambda x: self.plugin_priorities.get(x, 50)
