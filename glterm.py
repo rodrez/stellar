@@ -8,6 +8,7 @@ import threading
 import struct
 import termios
 import pygame
+import pygame.ftfont
 from stellar.components.ansi_parser import ANSIParser
 from stellar.settings.config import config
 import locale
@@ -25,7 +26,7 @@ class TerminalEmulator:
         self.scroll_position = 0
         self.cursor_x = 0
         self.cursor_y = 0
-        self.font = pygame.font.Font(config.font_family, config.font_size)
+        self.font = pygame.ftfont.Font(config.font_family, config.font_size)
         self.ansi_parser = ANSIParser()
         self.master_fd, self.slave_fd = pty.openpty()
         self.process = subprocess.Popen(
