@@ -19,6 +19,7 @@ class Config:
 
         # Appearance settings
         self.font_family = self.config["appearance"]["font_family"]
+        self.font_path = self.config["appearance"]["font_path"]
         self.font_size = self.config["appearance"]["font_size"]
         self.text_color = self.theme.get_primary_fg()
 

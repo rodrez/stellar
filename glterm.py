@@ -216,6 +216,7 @@ def main():
                     )
                 elif event.y < 0:  # Scroll down
                     terminal.scroll_position = max(terminal.scroll_position - 1, 0)
+                print(f"Scroll position: {terminal.scroll_position}")
             elif event.type == pygame.VIDEORESIZE:
                 surface = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
                 new_cols = event.w // char_width
@@ -224,7 +225,7 @@ def main():
 
         terminal.render(surface)
         pygame.display.flip()
-        clock.tick(60)  # Limit to 60 FPS
+        clock.tick(120)  # Limit to 60 FPS
 
 
 if __name__ == "__main__":
