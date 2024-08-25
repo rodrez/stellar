@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pty
 import select
 import subprocess
@@ -7,7 +8,11 @@ import fcntl
 import threading
 import struct
 import termios
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+)
 from PyQt5.QtGui import QFontDatabase, QPainter, QColor, QFont, QPen
 from PyQt5.QtCore import Qt, QTimer, QRect
 from stellar.components.ansi_parser import ANSIParser
@@ -31,15 +36,17 @@ class TerminalWidget(QWidget):
 
     def loadNerdFont(self):
         nerd_font_path = config.font_path
+        print("Font path: ", nerd_font_path)
 
-        if not os.path.exists(nerd_font_path):
+        if not Path(nerd_font_path).exists():
             print(f"Error: Nerd Font file not found at {nerd_font_path}")
-            self.font = QFont("Monospace", 18)
+            self.font = QFont("FiraCode Nerd Font", 18)
         else:
             font_id = QFontDatabase.addApplicationFont(nerd_font_path)
+            print("font id: ", font_id)
             if font_id == -1:
                 print("Error: Failed to load Nerd Font")
-                self.font = QFont("Monospace", 18)
+                self.font = QFont("FiraCode Nerd Font", 18)
             else:
                 font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
                 self.font = QFont(font_family, config.font_size)
@@ -55,7 +62,7 @@ class TerminalWidget(QWidget):
 
         bg_color = QColor(
             *self.terminal.ansi_parser.theme.hex_to_rgb(
-                self.terminal.ansi_parser.theme.get_primary_bg()
+                self.terminal.ansi_parser.theme.get_default_bg()
             )
         )
         painter.fillRect(event.rect(), bg_color)
@@ -267,6 +274,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PyQt5 Terminal Emulator")
         self.terminal_widget = TerminalWidget(self)
         self.setCentralWidget(self.terminal_widget)
+        # self.setCentralWidget(QFontComboBox())
         self.resize(800, 600)
 
 

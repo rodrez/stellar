@@ -21,14 +21,15 @@ class Config:
         self.font_family = self.config["appearance"]["font_family"]
         self.font_path = self.config["appearance"]["font_path"]
         self.font_size = self.config["appearance"]["font_size"]
-        self.text_color = self.theme.get_primary_fg()
+        self.text_color = self.theme.get_default_fg()
 
-        self.bg_color = self.theme.get_primary_bg()
+        self.bg_color = self.theme.get_default_bg()
         self.padding = self.config["appearance"]["padding"]
 
         # Terminal settings
         self.cols = self.config["terminal"]["cols"]
         self.rows = self.config["terminal"]["rows"]
+        self.buffer_size = self.config["terminal"]["buffer_size"]
 
         # Prompt settings
         self.prompt_format = self.config["prompt"].get("format", "")
@@ -37,6 +38,9 @@ class Config:
         # Cursor settings
         self.cursor_blink_interval = self.config["cursor"]["blink_interval"]
         self.cursor_type = self.config["cursor"]["type"]
+
+        # GUI
+        self.gui_engine = self.config["gui"]["engine"]
 
     def reload(self):
         """Reload the configuration from the TOML file"""

@@ -1,11 +1,15 @@
 import re
+from typing import List, Tuple, Dict, Union
+from functools import lru_cache
+import numpy as np
+
 from stellar.components.ansi import ANSI_COLORS
-from stellar.settings.config import config
+from stellar.settings.config import Config
 
 
 class ANSIParser:
     def __init__(self):
-        self.theme = config.theme
+        self.theme = Config().theme
         self.reset_attributes()
         self.escape_sequence_pattern = re.compile(
             r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])|[\u0080-\u009F]"
@@ -13,89 +17,149 @@ class ANSIParser:
         self.cursor_x = 0
         self.cursor_y = 0
 
-    def reset_attributes(self):
-        self.foreground_color = self.theme.hex_to_rgb(self.theme.get_primary_fg())
-        self.background_color = self.theme.hex_to_rgb(self.theme.get_primary_bg())
-        self.bold = False
-        self.italic = False
-        self.underline = False
+        self.sgr_pattern = re.compile(r"\x1b\[([0-9;]*)m")
+        self.cursor_pattern = re.compile(r"\x1b\[([0-9;]*)([ABCDEFGHJ])")
 
-    def parse(self, text):
+        # Pre-compute color arrays
+        self.ansi_colors = self._compute_ansi_colors()
+        self.bright_ansi_colors = self._compute_bright_ansi_colors()
+
+        # Pre-compute 256-color palette
+        self.color_256 = self._generate_256_color_palette()
+
+    def reset_attributes(self) -> None:
+        self.foreground_color = np.array(
+            self.theme.hex_to_rgb(self.theme.get_default_fg()), dtype=np.uint8
+        )
+        self.background_color = np.array(
+            self.theme.hex_to_rgb(self.theme.get_default_bg()), dtype=np.uint8
+        )
+        self.bold = self.italic = self.underline = False
+
+    @lru_cache(maxsize=None)
+    def _compute_ansi_colors(self):
+        return np.array(
+            [
+                self.theme.hex_to_rgb(self.theme.get_normal_color(color))
+                for color in [
+                    ANSI_COLORS.BLACK,
+                    ANSI_COLORS.RED,
+                    ANSI_COLORS.GREEN,
+                    ANSI_COLORS.YELLOW,
+                    ANSI_COLORS.BLUE,
+                    ANSI_COLORS.MAGENTA,
+                    ANSI_COLORS.CYAN,
+                    ANSI_COLORS.WHITE,
+                ]
+            ],
+            dtype=np.uint8,
+        )
+
+    @lru_cache(maxsize=None)
+    def _compute_bright_ansi_colors(self):
+        return np.array(
+            [
+                self.theme.hex_to_rgb(self.theme.get_bright_color(color))
+                for color in [
+                    ANSI_COLORS.BLACK,
+                    ANSI_COLORS.RED,
+                    ANSI_COLORS.GREEN,
+                    ANSI_COLORS.YELLOW,
+                    ANSI_COLORS.BLUE,
+                    ANSI_COLORS.MAGENTA,
+                    ANSI_COLORS.CYAN,
+                    ANSI_COLORS.WHITE,
+                ]
+            ],
+            dtype=np.uint8,
+        )
+
+    @lru_cache(maxsize=None)
+    def _generate_256_color_palette(self) -> np.ndarray:
+        palette = np.zeros((256, 3), dtype=np.uint8)
+        # Standard 16 colors
+        palette[:16] = np.vstack(
+            (self._compute_ansi_colors(), self._compute_bright_ansi_colors())
+        )
+        # 216 color cube
+        r = np.repeat(np.arange(0, 6, dtype=np.uint8), 36).reshape(-1, 1) * 51
+        g = (
+            np.tile(np.repeat(np.arange(0, 6, dtype=np.uint8), 6), 6).reshape(-1, 1)
+            * 51
+        )
+        b = np.tile(np.arange(0, 6, dtype=np.uint8), 36).reshape(-1, 1) * 51
+        palette[16:232] = np.hstack((r, g, b))
+        # 24 grayscale colors
+        gray = np.arange(8, 248, 10, dtype=np.uint8).reshape(-1, 1)
+        palette[232:] = np.repeat(gray, 3, axis=1)
+        return palette
+
+    def parse(self, text: str) -> List[Tuple[str, Dict[str, Union[bool, np.ndarray]]]]:
         parsed_text = []
         last_end = 0
 
         for match in self.escape_sequence_pattern.finditer(text):
-            # Add any text before the escape sequence
             if match.start() > last_end:
                 parsed_text.append(
                     (text[last_end : match.start()], self.get_current_style())
                 )
-
-            # Process the escape sequence
             self.process_escape_sequence(match.group())
             last_end = match.end()
 
-        # Add any remaining text after the last escape sequence
         if last_end < len(text):
             parsed_text.append((text[last_end:], self.get_current_style()))
 
         return parsed_text
 
-    def process_escape_sequence(self, sequence):
-        if sequence.startswith("\x1b[") and sequence[-1] in "ABCDEFGHJKSTfm":
-            params = sequence[2:-1].split(";")
-            command = sequence[-1]
+    def process_escape_sequence(self, sequence: str) -> None:
+        if sequence.startswith("\x1b["):
+            if sequence[-1] == "m":
+                self.process_sgr_params(
+                    self.sgr_pattern.match(sequence).group(1).split(";")
+                )
+            elif sequence[-1] in "ABCDEFGHJ":
+                params, command = self.cursor_pattern.match(sequence).groups()
+                self.process_cursor_command(params.split(";"), command)
 
-            if command == "m":
-                self.process_sgr_params(params)
-            elif command in "ABCD":
-                self.process_cursor_movement(params, command)
-            elif command in "EF":
-                self.process_line_movement(params, command)
-            elif command == "H":
-                self.process_cursor_position(params)
-            elif command == "J":
-                self.process_erase_in_display(params)
-            elif command == "K":
-                self.process_erase_in_line(params)
-            elif command == "S":
-                self.process_scroll_up(params)
-            elif command == "T":
-                self.process_scroll_down(params)
-            elif command == "f":
-                self.process_cursor_position(params)
-
-    def process_sgr_params(self, params):
+    def process_sgr_params(self, params: List[str]) -> None:
         i = 0
         while i < len(params):
             param = params[i]
-            if param == "38" or param == "48":
-                if i + 1 < len(params):
-                    if params[i + 1] == "5":  # 256-color mode
-                        if i + 2 < len(params):
-                            color = int(params[i + 2])
-                            if param == "38":
-                                self.foreground_color = self.get_256_color(color)
-                            else:
-                                self.background_color = self.get_256_color(color)
-                            i += 3
-                            continue
-                    elif params[i + 1] == "2":  # 24-bit color mode
-                        if i + 4 < len(params):
-                            r, g, b = map(int, params[i + 2 : i + 5])
-                            if param == "38":
-                                self.foreground_color = (r, g, b)
-                            else:
-                                self.background_color = (r, g, b)
-                            i += 5
-                            continue
-            try:
+            if param in ("38", "48"):
+                i = self.process_color_param(params, i)
+            else:
                 self.process_sgr_param(int(param))
-            except ValueError:
-                print(f"Warning: Invalid SGR parameter: {param}")
             i += 1
 
-    def process_sgr_param(self, param):
+    def process_color_param(self, params: List[str], i: int) -> int:
+        if i + 1 < len(params):
+            if params[i + 1] == "5" and i + 2 < len(params):
+                color = self.color_256[int(params[i + 2])]
+                setattr(
+                    self,
+                    f"{'foreground' if params[i] == '38' else 'background'}_color",
+                    color,
+                )
+                return i + 2
+            elif params[i + 1] == "2" and i + 4 < len(params):
+                color = np.array(list(map(int, params[i + 2 : i + 5])), dtype=np.uint8)
+                setattr(
+                    self,
+                    f"{'foreground' if params[i] == '38' else 'background'}_color",
+                    color,
+                )
+                return i + 4
+        return i
+
+    @lru_cache(maxsize=1024)
+    def get_ansi_color(self, color_code: int, bright: bool = False) -> np.ndarray:
+        return (
+            self.bright_ansi_colors[color_code]
+            if bright
+            else self.ansi_colors[color_code]
+        )
+
+    def process_sgr_param(self, param: int) -> None:
         if param == 0:
             self.reset_attributes()
         elif param == 1:
@@ -112,42 +176,8 @@ class ANSIParser:
             self.foreground_color = self.get_ansi_color(param - 90, bright=True)
         elif 100 <= param <= 107:
             self.background_color = self.get_ansi_color(param - 100, bright=True)
-        else:
-            print(f"Warning: Unknown SGR parameter: {param}")
 
-    def get_256_color(self, color):
-        # Basic 256-color palette implementation
-        if color < 16:
-            return self.get_ansi_color(color % 8, bright=color > 7)
-        elif 16 <= color < 232:
-            color -= 16
-            return (
-                ((color // 36) * 51),
-                (((color % 36) // 6) * 51),
-                ((color % 6) * 51),
-            )
-        else:
-            gray = (color - 232) * 10 + 8
-            return (gray, gray, gray)
-
-    def get_ansi_color(self, color_code, bright=False):
-        AC = ANSI_COLORS
-        color_map = {
-            0: AC.BLACK,
-            1: AC.RED,
-            2: AC.GREEN,
-            3: AC.YELLOW,
-            4: AC.BLUE,
-            5: AC.MAGENTA,
-            6: AC.CYAN,
-            7: AC.WHITE,
-        }
-        color_name = color_map[color_code]
-        if bright:
-            return self.theme.hex_to_rgb(self.theme.get_bright_color(color_name))
-        return self.theme.hex_to_rgb(self.theme.get_normal_color(color_name))
-
-    def get_current_style(self):
+    def get_current_style(self) -> Dict[str, Union[bool, np.ndarray]]:
         return {
             "foreground": self.foreground_color,
             "background": self.background_color,
@@ -156,7 +186,7 @@ class ANSIParser:
             "underline": self.underline,
         }
 
-    def process_cursor_movement(self, params, command):
+    def process_cursor_command(self, params: List[str], command: str) -> None:
         n = int(params[0]) if params and params[0] else 1
         if command == "A":
             self.cursor_y = max(0, self.cursor_y - n)
@@ -166,40 +196,21 @@ class ANSIParser:
             self.cursor_x += n
         elif command == "D":
             self.cursor_x = max(0, self.cursor_x - n)
-
-    def process_line_movement(self, params, command):
-        n = int(params[0]) if params and params[0] else 1
-        if command == "E":
+        elif command == "E":
             self.cursor_y += n
             self.cursor_x = 0
         elif command == "F":
             self.cursor_y = max(0, self.cursor_y - n)
             self.cursor_x = 0
+        elif command == "G":
+            self.cursor_x = max(0, n - 1)
+        elif command == "H":
+            self.cursor_y = int(params[0]) - 1 if len(params) > 0 else 0
+            self.cursor_x = int(params[1]) - 1 if len(params) > 1 else 0
 
-    def process_cursor_position(self, params):
-        if len(params) == 2:
-            self.cursor_y = int(params[0]) - 1
-            self.cursor_x = int(params[1]) - 1
-        else:
-            self.cursor_x = 0
-            self.cursor_y = 0
-
-    def process_erase_in_display(self, params):
-        # This method would need to interact with the terminal buffer
-        # For now, we'll just pass and implement the logic in the TerminalEmulator class
-        pass
-
-    def process_erase_in_line(self, params):
-        # This method would need to interact with the terminal buffer
-        # For now, we'll just pass and implement the logic in the TerminalEmulator class
-        pass
-
-    def process_scroll_up(self, params):
-        # This method would need to interact with the terminal buffer
-        # For now, we'll just pass and implement the logic in the TerminalEmulator class
-        pass
-
-    def process_scroll_down(self, params):
-        # This method would need to interact with the terminal buffer
-        # For now, we'll just pass and implement the logic in the TerminalEmulator class
-        pass
+    def clear_caches(self):
+        """Clear all LRU caches in case of theme changes."""
+        self._compute_ansi_colors.cache_clear()
+        self._compute_bright_ansi_colors.cache_clear()
+        self._generate_256_color_palette.cache_clear()
+        self.get_ansi_color.cache_clear()

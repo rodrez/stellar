@@ -226,7 +226,7 @@ class DefaultRenderer(RendererInterface):
         if self.cursor_visible:
             x = self.cursor_x * self.char_width
             y = self.cursor_y * self.char_height
-            cursor_color = self.theme.hex_to_rgb(self.theme.get_primary_fg())
+            cursor_color = self.theme.hex_to_rgb(self.theme.get_default_fg())
             cursor_hex = (
                 f"#{cursor_color[0]:02x}{cursor_color[1]:02x}{cursor_color[2]:02x}"
             )

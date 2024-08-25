@@ -1,35 +1,29 @@
-# main.py
+import sys
+from PyQt6.QtWidgets import QApplication
+import tkinter as tk
 
-from stellar.engines.tkinter import TkinterWindow
-from stellar.components.emulator import StellarEmulator
-from stellar.settings.config import Config
-import logging
-import traceback
+from stellar.gui import GUI_ENGINES
+from stellar.settings.config import config
+from stellar.utils.logger import StellarLogger
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = StellarLogger("stellar-term")
 
 if __name__ == "__main__":
-    try:
-        logger.debug("Starting Stellar Terminal Emulator")
-        config = Config()
-        logger.debug("Config loaded")
+    gui_engine = config.gui_engine
+    StellarApp = GUI_ENGINES.get(gui_engine, "pyqt")
 
-        window = TkinterWindow()
-        logger.debug("TkinterWindow instance created")
-
-        window.create_window("Stellar Terminal", 840, 640)
-        logger.debug("Tkinter window created")
-
-        emulator = StellarEmulator(window, config)
-        logger.debug("StellarEmulator instance created")
-
-        logger.info("Starting emulator")
-        emulator.start()
-    except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
-        logger.error(traceback.format_exc())
-    finally:
-        logger.info("Exiting Stellar Terminal Emulator")
+    logger.info(f"Using {gui_engine if gui_engine else 'pyqt'} gui engine")
+    if gui_engine == "pyqt":
+        app = QApplication(sys.argv)  # Create the QApplication instance
+        window = StellarApp()  # Create the main window (TerminalApp)
+        window.show()  # Display the window
+        sys.exit(app.exec())  # Run the application event loop
+    elif gui_engine == "tkinter":
+        root = tk.Tk()
+        root.title("Tkinter Terminal Emulator")
+        app = StellarApp(master=root)
+        app.start_process()
+        root.mainloop()
+    elif gui_engine == "dearpygui":
+        app = StellarApp()
+        app.run()

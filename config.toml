@@ -1,14 +1,19 @@
 [appearance]
-font_path = "./assets/fira_code/FiraCodeNerdFontMono-SemiBold.ttf"
+font_path = "./assets/fira_code/FiraCodeNerdFont-SemiBold.ttf"
 font_family = "firacode"
 font_size = 22
 text_color = "white"
 bg_color = "black"
 padding = 5
+title_bar = false
 
 [terminal]
 cols = 78
 rows = 24
+buffer_size = 25000
+
+[gui]
+engine = 'pyqt'
 
 [cursor]
 blink_interval = 0.5

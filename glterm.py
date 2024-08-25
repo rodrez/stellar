@@ -123,7 +123,7 @@ class TerminalEmulator:
 
     def render(self, surface):
         surface.fill(
-            self.ansi_parser.theme.hex_to_rgb(self.ansi_parser.theme.get_primary_bg())
+            self.ansi_parser.theme.hex_to_rgb(self.ansi_parser.theme.get_default_bg())
         )
         y_offset = 0
         visible_buffer = self.scrollback_buffer[-self.scroll_position :] + self.buffer
@@ -186,7 +186,7 @@ def main():
     surface = pygame.display.set_mode(display, pygame.RESIZABLE)
     pygame.display.set_caption("Enhanced ANSI Terminal Emulator")
 
-    color = config.theme.hex_to_rgb(config.theme.get_primary_bg())
+    color = config.theme.hex_to_rgb(config.theme.get_default_bg())
     surface.fill(color)
 
     font = pygame.font.Font(config.font_family, config.font_size)

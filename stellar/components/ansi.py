@@ -96,7 +96,7 @@ class ANSI_Parser:
             return cursor_type.value.format(line=line, col=col)
         return cursor_type.value.format(num=num)
 
-    def parse_color_256(self, fore_id: int = 15, back_id: int = 15) -> ANSI_COLOR:
+    def parse_color_256(self, fore_id: int = 15, back_id: int = 15) -> str:
         fore_string = f"{GeneralCodes.ESC}[38;5;{fore_id}m"
         back_string = f"{GeneralCodes.ESC}[48;5;{back_id}m"
         return f"{GeneralCodes.ESC}{fore_string}{back_string}"
@@ -113,7 +113,7 @@ class ANSI_Parser:
     def parse_color(
         self,
         fore: FG = FG.DEFAULT,
-        back: FG = BG.DEFAULT,
+        back: BG = BG.DEFAULT,
     ):
         # Set style to bold, red foreground
         # \x1b[1;32mHello
