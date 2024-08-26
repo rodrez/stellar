@@ -20,6 +20,14 @@ class ANSIParser:
         self.sgr_pattern = re.compile(r"\x1b\[([0-9;]*)m")
         self.cursor_pattern = re.compile(r"\x1b\[([0-9;]*)([ABCDEFGHJ])")
 
+        # New attributes for title and CWD
+        self.terminal_title = ""
+        self.current_working_directory = ""
+
+        # Updated patterns for title and CWD
+        self.title_pattern = re.compile(r"\x1b]0;(.*?)\x07")
+        self.cwd_pattern = re.compile(r"\x1b]7;file://(.*?)\x07")
+
         # Pre-compute color arrays
         self.ansi_colors = self._compute_ansi_colors()
         self.bright_ansi_colors = self._compute_bright_ansi_colors()
@@ -95,6 +103,15 @@ class ANSIParser:
         return palette
 
     def parse(self, text: str) -> List[Tuple[str, Dict[str, Union[bool, np.ndarray]]]]:
+        # Process title and CWD before other parsing
+        print("Text before clan: ", text)
+        self.process_title_and_cwd(text)
+
+        # Remove title and CWD sequences from text
+        text = self.title_pattern.sub("", text)
+        text = self.cwd_pattern.sub("", text)
+
+        print("Text after clan: ", text)
         parsed_text = []
         last_end = 0
 
@@ -110,6 +127,23 @@ class ANSIParser:
             parsed_text.append((text[last_end:], self.get_current_style()))
 
         return parsed_text
+
+    def process_title_and_cwd(self, text: str) -> None:
+        # Process terminal title
+        title_match = self.title_pattern.search(text)
+        if title_match:
+            self.terminal_title = title_match.group(1)
+
+        # Process current working directory
+        cwd_match = self.cwd_pattern.search(text)
+        if cwd_match:
+            self.current_working_directory = cwd_match.group(1)
+
+    def get_terminal_title(self) -> str:
+        return self.terminal_title
+
+    def get_current_working_directory(self) -> str:
+        return self.current_working_directory
 
     def process_escape_sequence(self, sequence: str) -> None:
         if sequence.startswith("\x1b["):

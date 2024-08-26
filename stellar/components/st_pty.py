@@ -110,6 +110,7 @@ class StellarPTY:
                     if not data:
                         break  # Exit if no data is returned (i.e., PTY closed)
                     if self.output_callback:
+                        print("Data: ", data)
                         self.output_callback(
                             data.decode("utf-8", errors="replace")
                         )  # Call the callback with the decoded data
