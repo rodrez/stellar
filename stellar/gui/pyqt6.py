@@ -195,7 +195,7 @@ class StellarApp(QWidget):
         self.fps_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.fps_label)
 
-        self.stellar_pty = StellarPTY()
+        self.stellar_pty = StellarPTY("/bin/bash")
         self.terminal = TerminalWidget(self.stellar_pty)
         self.terminal.title_changed.connect(self.update_window_title)
         self.terminal.cwd_changed.connect(self.handle_cwd_change)
@@ -212,7 +212,7 @@ class StellarApp(QWidget):
         self.timer.start(16)
 
     def update_window_title(self, new_title):
-        self.setWindowTitle(f"Stellar Terminal Emulator - {new_title}")
+        self.setWindowTitle(f"Stellar Term - {new_title}")
 
     def handle_cwd_change(self, new_cwd):
         # You can use the new_cwd information as needed
